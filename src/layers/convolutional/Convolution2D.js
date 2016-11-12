@@ -222,65 +222,33 @@ export default class Convolution2D extends Layer {
     this._calcOutputShape(x)
     this._padInput(x)
 
-    if (this.borderMode !== 'same' || this.subsample[0] !== 1 || this.subsample[1] !== 1) {
-      throw new Error('unsupported');
-    }
-    const kShape = this.weights.W.tensor.shape
-    let output = new Tensor([], this.outputShape);
-    for (var iFilter = 0; iFilter < kShape[3]; iFilter++) {
-      console.log("Started filter " + iFilter + " at " + new Date());
-      for (var iOutput0 = 0; iOutput0 < output.tensor.shape[0]; iOutput0++) {
-        for (var iOutput1 = 0; iOutput1 < output.tensor.shape[1]; iOutput1++) {
-          var sum = 0;
-          for (var iInput0 = iOutput0; iInput0 < iOutput0 + kShape[0]; iInput0++) {
-            for (var iInput1 = iOutput1; iInput1 < iOutput1 + kShape[1]; iInput1++) {
-              for (var iChannel = 0; iChannel < kShape[2]; iChannel++) {
-                sum += x.tensor.get(iInput0, iInput1, iChannel) *
-                  this.weights.W.tensor.get(iInput0 - iOutput0, iInput1 - iOutput1, iChannel, iFilter);
+    if (this.weights.W.tensor.shape[0] === 9 && x.tensor.shape[2] === 32 && this.outputShape[2] === 3) {
+      if (this.borderMode !== 'same' || this.subsample[0] !== 1 || this.subsample[1] !== 1) {
+        throw new Error('unsupported');
+      }
+      const kShape = this.weights.W.tensor.shape
+      let output = new Tensor([], this.outputShape);
+      for (var iFilter = 0; iFilter < kShape[3]; iFilter++) {
+        console.log("Started filter " + iFilter + " at " + new Date());
+        for (var iOutput0 = 0; iOutput0 < output.tensor.shape[0]; iOutput0++) {
+          for (var iOutput1 = 0; iOutput1 < output.tensor.shape[1]; iOutput1++) {
+            var sum = 0;
+            for (var iInput0 = iOutput0; iInput0 < iOutput0 + kShape[0]; iInput0++) {
+              for (var iInput1 = iOutput1; iInput1 < iOutput1 + kShape[1]; iInput1++) {
+                for (var iChannel = 0; iChannel < kShape[2]; iChannel++) {
+                  sum += x.tensor.get(iInput0, iInput1, iChannel) *
+                    this.weights.W.tensor.get(iInput0 - iOutput0, iInput1 - iOutput1, iChannel, iFilter);
+                }
               }
             }
+            output.tensor.set(iOutput0, iOutput1, iFilter, sum);
+            // console.log(sum);
           }
-          output.tensor.set(iOutput0, iOutput1, iFilter, sum);
-          console.log(sum);
         }
       }
-    }
 
-    /*
-
-
-
-          for (var iInput0 = 0; iInput0 < x.tensor.shape[0]; iInput0++) {
-            for (var iInput1 = 0; iInput1 < x.tensor.shape[1]; iInput1++) {
-              for (var i
-        
-
-    let output2 = new Tensor([], this.outputShape)
-    let outputTensor = unsqueeze(output2.tensor.pick(null, null, 0));
-    var sliced = this.weights.W.tensor.pick(null, null, null, 0);
-    convolve.wrap(outputTensor, x.tensor, sliced);
-
-    // x.tensor = output.tensor;
-    var asdf = 0;
-    for (var i = 0; i < 9; i++) {
-      for (var j = 0; j < 9; j++) {
-        for (var k = 0; k < 3; k++) {
-          asdf += x.tensor.get(i, j, k) * sliced.get(i, j, k);
-        }
-      }
-    }
-    console.log(asdf);
-    console.log(outputTensor.get(0, 0, 0));
-    debugger;
-    console.log(outputTensor);
-    */
-    debugger;
-
-
-
-    if (true) {
-        // XXX disabled code:
-
+      x.tensor = output.tensor;
+    } else {
         this._im2col(x)
 
         const nbFilter = this.kernelShape[0]
@@ -314,10 +282,8 @@ export default class Convolution2D extends Layer {
           outputChannel.replaceTensorData(outputChannelRaveled.tensor.data)
           ops.assign(output.tensor.pick(null, null, n), outputChannel.tensor)
         }
-        console.log(output);
-        // x.tensor = output.tensor
+        x.tensor = output.tensor
     }
-    debugger;
 
     this.activation(x)
 
