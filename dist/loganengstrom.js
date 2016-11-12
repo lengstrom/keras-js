@@ -3515,15 +3515,16 @@ var Convolution2D = function (_Layer) {
       this._padInput(x);
 
       var output2 = new _Tensor2.default([], this.outputShape);
-      output2 = output2.pick(null, null, 0);
-      console.log(output2.tensor);
+      var outputTensor = output2.tensor.pick(null, null, 0);
+      // hi
+      console.log(outputTensor);
       console.log(x.tensor);
       console.log(this.weights.W.tensor);
       var sliced = this.weights.W.tensor.pick(null, null, null, 0);
       console.log(sliced);
-      (0, _ndarrayConvolve2.default)(output.tensor, x.tensor, sliced);
+      (0, _ndarrayConvolve2.default)(outputTensor, x.tensor, sliced);
       // x.tensor = output.tensor;
-      console.log(output2);
+      console.log(outputTensor);
 
       if (true) {
         // XXX disabled code:
@@ -3550,13 +3551,13 @@ var Convolution2D = function (_Layer) {
           (0, _ndarrayGemm2.default)(matMul.tensor, this._imColsMat.tensor, this._wRowsMat.tensor, 1, 1);
         }
 
-        var _output = new _Tensor2.default([], this.outputShape);
+        var output = new _Tensor2.default([], this.outputShape);
         var outputChannelRaveled = new _Tensor2.default([], [outputRows * outputCols]);
         var outputChannel = new _Tensor2.default([], [outputRows, outputCols]);
         for (var _n = 0; _n < nbFilter; _n++) {
           _ndarrayOps2.default.assign(outputChannelRaveled.tensor, matMul.tensor.pick(null, _n));
           outputChannel.replaceTensorData(outputChannelRaveled.tensor.data);
-          _ndarrayOps2.default.assign(_output.tensor.pick(null, null, _n), outputChannel.tensor);
+          _ndarrayOps2.default.assign(output.tensor.pick(null, null, _n), outputChannel.tensor);
         }
         // x.tensor = output.tensor
       }
@@ -38660,4 +38661,4 @@ module.exports = __webpack_require__(192);
 /******/ ])
 });
 ;
-//# sourceMappingURL=keras.js.map
+//# sourceMappingURL=loganengstrom.js.map

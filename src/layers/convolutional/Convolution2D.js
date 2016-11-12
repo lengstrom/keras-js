@@ -3,6 +3,11 @@ import Tensor from '../../Tensor'
 import Layer from '../../Layer'
 import ops from 'ndarray-ops'
 import gemm from 'ndarray-gemm'
+import convolve from 'ndarray-convolve'
+import ndarray from 'ndarray'
+import unsqueeze from 'ndarray-unsqueeze'
+import show from 'ndarray-show'
+import pool from 'ndarray-scratch'
 
 /**
  * Convolution2D layer class
@@ -217,40 +222,102 @@ export default class Convolution2D extends Layer {
     this._calcOutputShape(x)
     this._padInput(x)
 
-    this._im2col(x)
-
-    const nbFilter = this.kernelShape[0]
-    const outputRows = this.outputShape[0]
-    const outputCols = this.outputShape[1]
-    const nbPatches = outputRows * outputCols
-    const matMul = new Tensor([], [nbPatches, nbFilter])
-
-    if (this._useWeblas && !(this._imColsMat._gpuMaxSizeExceeded || this._wRowsMat._gpuMaxSizeExceeded)) {
-      // GPU
-      const bias = this.bias ? this.weights.b.weblasTensor : this._zerosVec.weblasTensor
-      matMul.tensor.data = weblas.pipeline.sgemm(
-        1, this._imColsMat.weblasTensor, this._wRowsMat.weblasTensor,
-        1, bias
-      ).transfer()
-    } else {
-      // CPU
-      if (this.bias) {
-        for (let n = 0; n < nbFilter; n++) {
-          ops.assigns(matMul.tensor.pick(null, n), this.weights.b.tensor.get(n))
+    if (this.borderMode !== 'same' || this.subsample[0] !== 1 || this.subsample[1] !== 1) {
+      throw new Error('unsupported');
+    }
+    const kShape = this.weights.W.tensor.shape
+    let output = new Tensor([], this.outputShape);
+    for (var iFilter = 0; iFilter < kShape[3]; iFilter++) {
+      console.log("Started filter " + iFilter + " at " + new Date());
+      for (var iOutput0 = 0; iOutput0 < output.tensor.shape[0]; iOutput0++) {
+        for (var iOutput1 = 0; iOutput1 < output.tensor.shape[1]; iOutput1++) {
+          var sum = 0;
+          for (var iInput0 = iOutput0; iInput0 < iOutput0 + kShape[0]; iInput0++) {
+            for (var iInput1 = iOutput1; iInput1 < iOutput1 + kShape[1]; iInput1++) {
+              for (var iChannel = 0; iChannel < kShape[2]; iChannel++) {
+                sum += x.tensor.get(iInput0, iInput1, iChannel) *
+                  this.weights.W.tensor.get(iInput0 - iOutput0, iInput1 - iOutput1, iChannel, iFilter);
+              }
+            }
+          }
+          output.tensor.set(iOutput0, iOutput1, iFilter, sum);
+          console.log(sum);
         }
       }
-      gemm(matMul.tensor, this._imColsMat.tensor, this._wRowsMat.tensor, 1, 1)
     }
 
-    let output = new Tensor([], this.outputShape)
-    let outputChannelRaveled = new Tensor([], [outputRows * outputCols])
-    let outputChannel = new Tensor([], [outputRows, outputCols])
-    for (let n = 0; n < nbFilter; n++) {
-      ops.assign(outputChannelRaveled.tensor, matMul.tensor.pick(null, n))
-      outputChannel.replaceTensorData(outputChannelRaveled.tensor.data)
-      ops.assign(output.tensor.pick(null, null, n), outputChannel.tensor)
+    /*
+
+
+
+          for (var iInput0 = 0; iInput0 < x.tensor.shape[0]; iInput0++) {
+            for (var iInput1 = 0; iInput1 < x.tensor.shape[1]; iInput1++) {
+              for (var i
+        
+
+    let output2 = new Tensor([], this.outputShape)
+    let outputTensor = unsqueeze(output2.tensor.pick(null, null, 0));
+    var sliced = this.weights.W.tensor.pick(null, null, null, 0);
+    convolve.wrap(outputTensor, x.tensor, sliced);
+
+    // x.tensor = output.tensor;
+    var asdf = 0;
+    for (var i = 0; i < 9; i++) {
+      for (var j = 0; j < 9; j++) {
+        for (var k = 0; k < 3; k++) {
+          asdf += x.tensor.get(i, j, k) * sliced.get(i, j, k);
+        }
+      }
     }
-    x.tensor = output.tensor
+    console.log(asdf);
+    console.log(outputTensor.get(0, 0, 0));
+    debugger;
+    console.log(outputTensor);
+    */
+    debugger;
+
+
+
+    if (true) {
+        // XXX disabled code:
+
+        this._im2col(x)
+
+        const nbFilter = this.kernelShape[0]
+        const outputRows = this.outputShape[0]
+        const outputCols = this.outputShape[1]
+        const nbPatches = outputRows * outputCols
+        const matMul = new Tensor([], [nbPatches, nbFilter])
+
+        if (false && this._useWeblas && !(this._imColsMat._gpuMaxSizeExceeded || this._wRowsMat._gpuMaxSizeExceeded)) {
+          // GPU
+          const bias = this.bias ? this.weights.b.weblasTensor : this._zerosVec.weblasTensor
+          matMul.tensor.data = weblas.pipeline.sgemm(
+            1, this._imColsMat.weblasTensor, this._wRowsMat.weblasTensor,
+            1, bias
+          ).transfer()
+        } else {
+          // CPU
+          if (this.bias) {
+            for (let n = 0; n < nbFilter; n++) {
+              ops.assigns(matMul.tensor.pick(null, n), this.weights.b.tensor.get(n))
+            }
+          }
+          gemm(matMul.tensor, this._imColsMat.tensor, this._wRowsMat.tensor, 1, 1)
+        }
+
+        let output = new Tensor([], this.outputShape)
+        let outputChannelRaveled = new Tensor([], [outputRows * outputCols])
+        let outputChannel = new Tensor([], [outputRows, outputCols])
+        for (let n = 0; n < nbFilter; n++) {
+          ops.assign(outputChannelRaveled.tensor, matMul.tensor.pick(null, n))
+          outputChannel.replaceTensorData(outputChannelRaveled.tensor.data)
+          ops.assign(output.tensor.pick(null, null, n), outputChannel.tensor)
+        }
+        console.log(output);
+        // x.tensor = output.tensor
+    }
+    debugger;
 
     this.activation(x)
 
